@@ -443,7 +443,6 @@
             margin-bottom: 20px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-
         #loginSection input[type="password"] {
             width: 180px;
             padding: 6px 10px;
@@ -452,13 +451,11 @@
             font-size: 14px;
             transition: border-color 0.25s ease;
         }
-
         #loginSection input[type="password"]:focus {
             outline: none;
-            border-color: #0d6efd; /* светло сина */
+            border-color: #0d6efd;
             box-shadow: 0 0 5px rgba(13, 110, 253, 0.5);
         }
-
         #loginSection button {
             padding: 6px 14px;
             border: none;
@@ -469,25 +466,20 @@
             transition: background-color 0.25s ease;
             box-shadow: 0 1px 3px rgba(0,0,0,0.15);
         }
-
         #loginSection button#loginBtn {
-            background-color: #0d6efd; /* bootstrap primary blue */
+            background-color: #0d6efd;
             color: white;
         }
-
         #loginSection button#loginBtn:hover {
             background-color: #084cd6;
         }
-
         #loginSection button#logoutBtn {
-            background-color: #dc3545; /* bootstrap danger red */
+            background-color: #dc3545;
             color: white;
         }
-
         #loginSection button#logoutBtn:hover {
             background-color: #a71d2a;
         }
-
     </style>
 </head>
 <body>
@@ -542,7 +534,7 @@
     loginBtn.addEventListener('click', async () => {
         const password = adminPasswordInput.value.trim();
         if (!password) return alert('Внеси лозинка!');
-        const res = await fetch('http://localhost:3000/api/login', {
+        const res = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -561,7 +553,7 @@
     });
 
     // Логаут
-    logoutBtn.addEventListener('click', async () => {
+    logoutBtn.addEventListener('click', () => {
         isAdmin = false;
         document.cookie = 'token=; Max-Age=0';
         adminPasswordInput.style.display = 'inline-block';
@@ -585,7 +577,7 @@
     }
 
     async function fetchProducts() {
-        const res = await fetch('http://localhost:3000/api/products');
+        const res = await fetch('/api/products', { credentials: 'include' });
         return res.json();
     }
 
@@ -596,17 +588,17 @@
             const tr = document.createElement('tr');
             if (isAdmin) {
                 tr.innerHTML = `
-            <td>${p.barcode}</td>
-            <td>${p.name}</td>
-            <td>${p.price.toFixed(2)}</td>
-            <td>
-              <button class="btn-edit">Измени</button>
-              <button class="btn-delete">Избриши</button>
-            </td>
-          `;
+                        <td>${p.barcode}</td>
+                        <td>${p.name}</td>
+                        <td>${p.price.toFixed(2)}</td>
+                        <td>
+                          <button class="btn-edit">Измени</button>
+                          <button class="btn-delete">Избриши</button>
+                        </td>
+                    `;
                 tr.querySelector('.btn-delete').addEventListener('click', e => {
                     e.stopPropagation();
-                    if (confirm(`"dali da izbrisam ${p.name}?"`)) deleteProduct(p.barcode);
+                    if (confirm(`Дали да избришам "${p.name}"?`)) deleteProduct(p.barcode);
                 });
                 tr.querySelector('.btn-edit').addEventListener('click', e => {
                     e.stopPropagation();
@@ -614,18 +606,16 @@
                 });
             } else {
                 tr.innerHTML = `
-            <td>${p.name}</td>
-            <td>${p.price.toFixed(2)}</td>
-          `;
+                        <td>${p.name}</td>
+                        <td>${p.price.toFixed(2)}</td>
+                    `;
             }
             tbody.appendChild(tr);
         });
     }
 
-
-
     async function deleteProduct(barcode) {
-        const res = await fetch(`http://localhost:3000/api/products/${barcode}`, {
+        const res = await fetch(`/api/products/${barcode}`, {
             method: 'DELETE',
             credentials: 'include'
         });
@@ -642,7 +632,6 @@
         document.getElementById('barcode').value = p.barcode;
         document.getElementById('name').value = p.name;
         document.getElementById('price').value = p.price;
-        document.getElementById('barcode').disabled = false; // овозможи уредување
         document.getElementById('submitBtn').textContent = 'Измени продукт';
         document.getElementById('cancelBtn').style.display = 'inline-block';
     }
@@ -651,7 +640,6 @@
         editMode = false;
         editBarcode = null;
         document.getElementById('productForm').reset();
-        document.getElementById('barcode').disabled = false;
         document.getElementById('submitBtn').textContent = 'Додај продукт';
         document.getElementById('cancelBtn').style.display = 'none';
     }
@@ -660,29 +648,27 @@
 
     document.getElementById('productForm').addEventListener('submit', async e => {
         e.preventDefault();
-        const newBarcode = document.getElementById('barcode').value.trim();
-        const name = document.getElementById('name').value.trim();
-        const price = parseFloat(document.getElementById('price').value);
-        if (!newBarcode || !name || isNaN(price)) return alert('Внеси валидни податоци!');
-
+        const barcodeVal = document.getElementById('barcode').value.trim();
+        const nameVal = document.getElementById('name').value.trim();
+        const priceVal = parseFloat(document.getElementById('price').value);
+        if (!barcodeVal || !nameVal || isNaN(priceVal)) return alert('Внеси валидни податоци!');
         if (editMode) {
-            const res = await fetch(`http://localhost:3000/api/products/${editBarcode}`, {
+            const res = await fetch(`/api/products/${editBarcode}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ barcode: newBarcode, name, price })
+                body: JSON.stringify({ barcode: barcodeVal, name: nameVal, price: priceVal })
             });
             if (res.ok) {
-                editBarcode = newBarcode;
                 resetForm();
                 await loadAndDisplay();
             } else alert('Грешка при измена');
         } else {
-            const res = await fetch('http://localhost:3000/api/products', {
+            const res = await fetch('/api/products', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ barcode: newBarcode, name, price })
+                body: JSON.stringify({ barcode: barcodeVal, name: nameVal, price: priceVal })
             });
             if (res.ok) {
                 resetForm();

@@ -8,15 +8,21 @@ const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
+// ➤ Ова го менуваме за да дозволува сите origin-и:
 app.use(cors({
-    origin: 'http://localhost:5173', // prilagoden na Vite dev server
-    credentials: true,
+    origin: true,      // дозволува секаков origin
+    credentials: true  // дозволува праќање и примање cookies
 }));
+
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.static('public'));
+
+// Сервирање на фронтенд статики
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Потоа, API рутите…
 
 const EXCEL_PATH = path.join(__dirname, 'uploads', 'products.xlsx');
 const SECRET_KEY = 'tvoja_super_tajno_kljuce';
@@ -28,135 +34,104 @@ const adminUser = {
 
 const loadProducts = () => {
     if (!fs.existsSync(EXCEL_PATH)) return [];
-
-    const workbook = XLSX.readFile(EXCEL_PATH);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
+    const wb = XLSX.readFile(EXCEL_PATH);
+    const sheet = wb.Sheets[wb.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-
-    const products = data.slice(1).map(row => ({
+    return data.slice(1).map(row => ({
         id: row[0],
         barcode: String(row[1]).trim(),
         name: String(row[2]).trim(),
         unit: row[4] || '',
         price: Number(row[8]) || 0,
     }));
-    return products;
 };
 
-const saveProducts = (products) => {
-    const workbook = XLSX.readFile(EXCEL_PATH);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
+const saveProducts = products => {
+    const wb = XLSX.readFile(EXCEL_PATH);
+    const sheet = wb.Sheets[wb.SheetNames[0]];
     const header = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })[0];
-
-    const data = [header];
-    products.forEach(p => {
-        data.push([
-            p.id,
-            p.barcode,
-            p.name,
-            null,
-            p.unit,
-            null,
-            null,
-            null,
-            p.price,
-            null
-        ]);
-    });
-
-    const newSheet = XLSX.utils.aoa_to_sheet(data);
-    const newWorkbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(newWorkbook, newSheet, sheetName);
-
-    XLSX.writeFile(newWorkbook, EXCEL_PATH);
+    const aoa = [header, ...products.map(p => [
+        p.id, p.barcode, p.name, null, p.unit, null, null, null, p.price, null
+    ])];
+    const newSheet = XLSX.utils.aoa_to_sheet(aoa);
+    const newWb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(newWb, newSheet, wb.SheetNames[0]);
+    XLSX.writeFile(newWb, EXCEL_PATH);
 };
 
 let products = loadProducts();
 
 function verifyAdmin(req, res, next) {
-    const token = req.cookies.token || req.headers['authorization']?.split(' ')[1];
+    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ message: 'Нема овластување' });
-
     try {
         const decoded = jwt.verify(token, SECRET_KEY);
         if (decoded.username === adminUser.username) {
             req.user = decoded;
-            return next();
+            next();
         } else {
-            return res.status(403).json({ message: 'Нема овластување' });
+            res.status(403).json({ message: 'Нема овластување' });
         }
-    } catch (e) {
-        return res.status(401).json({ message: 'Невалиден токен' });
+    } catch {
+        res.status(401).json({ message: 'Невалиден токен' });
     }
 }
 
+// --- API маршрути ---
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    if (username !== adminUser.username || !bcrypt.compareSync(password, adminUser.passwordHash)) {
+    if (username !== adminUser.username ||
+        !bcrypt.compareSync(password, adminUser.passwordHash)) {
         return res.status(401).json({ message: 'Грешно корисничко име или лозинка' });
     }
-
-    const token = jwt.sign({ username: adminUser.username }, SECRET_KEY, { expiresIn: '2h' });
+    const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: '2h' });
     res.cookie('token', token, { httpOnly: true });
-    res.json({ message: 'Најавен', token });
+    res.json({ message: 'Најавен' });
 });
 
-app.get('/api/check-auth', verifyAdmin, (req, res) => {
-    res.json({ username: req.user.username });
-});
-
-app.get('/api/products', (req, res) => {
-    res.json(products);
-});
+app.get('/api/products', (req, res) => res.json(products));
 
 app.post('/api/products', verifyAdmin, (req, res) => {
     const { barcode, name, price, unit } = req.body;
-    if (!barcode || !name || price === undefined || isNaN(price)) {
-        return res.status(400).json({ message: 'Недостасуваат полиња или се невалидни' });
+    if (!barcode || !name || isNaN(price)) {
+        return res.status(400).json({ message: 'Невалидни полиња' });
     }
-
-    const exists = products.find(p => p.barcode === barcode);
-    if (exists) {
-        return res.status(400).json({ message: 'Производ со истиот баркод веќе постои' });
+    if (products.some(p => p.barcode === barcode)) {
+        return res.status(400).json({ message: 'Баркод постои' });
     }
-
     const newProduct = {
-        id: products.length ? Math.max(...products.map(p => p.id)) + 1 : 1,
-        barcode: String(barcode).trim(),
-        name: String(name).trim(),
+        id: products.length ? Math.max(...products.map(p=>p.id)) + 1 : 1,
+        barcode: barcode.trim(),
+        name: name.trim(),
         unit: unit || '',
         price: Number(price),
     };
-
     products.push(newProduct);
     saveProducts(products);
-    res.status(201).json({ message: 'Производот е додаден', product: newProduct });
+    res.status(201).json(newProduct);
 });
 
 app.put('/api/products/:barcode', verifyAdmin, (req, res) => {
-    const { barcode } = req.params;
-    const updated = req.body;
-
-    const index = products.findIndex(p => p.barcode === barcode);
-    if (index === -1) return res.status(404).json({ message: 'Производот не е најден' });
-
-    products[index] = { ...products[index], ...updated };
+    const idx = products.findIndex(p => p.barcode === req.params.barcode);
+    if (idx === -1) return res.status(404).json({ message: 'Не најден' });
+    products[idx] = { ...products[idx], ...req.body };
     saveProducts(products);
-    res.json({ message: 'Производот е ажуриран', product: products[index] });
+    res.json(products[idx]);
 });
 
 app.delete('/api/products/:barcode', verifyAdmin, (req, res) => {
-    const { barcode } = req.params;
-    const index = products.findIndex(p => p.barcode === barcode);
-    if (index === -1) return res.status(404).json({ message: 'Производот не е најден' });
-
-    products.splice(index, 1);
+    const idx = products.findIndex(p => p.barcode === req.params.barcode);
+    if (idx === -1) return res.status(404).json({ message: 'Не најден' });
+    products.splice(idx, 1);
     saveProducts(products);
-    res.json({ message: 'Производот е избришан' });
+    res.json({ message: 'Избришан' });
+});
+
+// Фолбек за SPA
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Серверот работи на http://localhost:${PORT}`);
+    console.log(`🚀 Сервер работи на порт ${PORT}`);
 });
