@@ -1,0 +1,715 @@
+<!--<!DOCTYPE html>-->
+<!--<html lang="mk">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8" />-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>-->
+<!--    <title>Гонито маркет</title>-->
+<!--    <style>-->
+<!--        body {-->
+<!--            font-family: Arial, sans-serif;-->
+<!--            padding: 20px;-->
+<!--        }-->
+<!--        input, button {-->
+<!--            padding: 8px;-->
+<!--            margin: 5px 0;-->
+<!--            width: 300px;-->
+<!--            box-sizing: border-box;-->
+<!--        }-->
+<!--        button {-->
+<!--            width: 150px;-->
+<!--            cursor: pointer;-->
+<!--        }-->
+<!--        table {-->
+<!--            width: 100%;-->
+<!--            border-collapse: collapse;-->
+<!--            margin-top: 20px;-->
+<!--        }-->
+<!--        th, td {-->
+<!--            padding: 12px;-->
+<!--            border: 1px solid #ccc;-->
+<!--            text-align: left;-->
+<!--        }-->
+<!--        th {-->
+<!--            background-color: #f4f4f4;-->
+<!--        }-->
+<!--        tr.selected {-->
+<!--            background-color: #d3f4ff;-->
+<!--        }-->
+<!--        .btn-delete {-->
+<!--            background-color: #e74c3c;-->
+<!--            color: white;-->
+<!--            border: none;-->
+<!--            padding: 6px 12px;-->
+<!--            cursor: pointer;-->
+<!--            border-radius: 4px;-->
+<!--            width: auto;-->
+<!--        }-->
+<!--        .btn-delete:hover {-->
+<!--            background-color: #c0392b;-->
+<!--        }-->
+<!--        #loginSection {-->
+<!--            margin-bottom: 20px;-->
+<!--        }-->
+<!--        #logoutBtn {-->
+<!--            display: none;-->
+<!--            margin-left: 10px;-->
+<!--            width: auto;-->
+<!--            padding: 8px;-->
+
+<!--        }-->
+
+<!--        /* Додадете го во вашиот <style> блок */-->
+<!--        #loginSection {-->
+<!--            display: flex;-->
+<!--            justify-content: flex-end;   /* Премести содржината до десната страна */-->
+<!--            align-items: center;-->
+<!--            gap: 10px;                    /* Раздалечување меѓу елементите */-->
+<!--            margin-bottom: 20px;-->
+<!--        }-->
+
+<!--        #loginSection input[type="password"] {-->
+<!--            width: 200px;                 /* Пооптимална ширина */-->
+<!--            padding: 8px 12px;-->
+<!--            border: 1px solid #ccc;-->
+<!--            border-radius: 4px;-->
+<!--            transition: border-color 0.2s;-->
+<!--        }-->
+
+<!--        #loginSection input[type="password"]:focus {-->
+<!--            outline: none;-->
+<!--            border-color: #007BFF;        /* Акцентна боја при фокус */-->
+<!--        }-->
+
+<!--        #loginSection button {-->
+<!--            padding: 8px 16px;-->
+<!--            border: none;-->
+<!--            border-radius: 4px;-->
+<!--            background-color: #007BFF;    /* Стандардна боја */-->
+<!--            color: white;-->
+<!--            font-weight: bold;-->
+<!--            transition: background-color 0.2s;-->
+<!--        }-->
+
+<!--        #loginSection button:hover {-->
+<!--            background-color: #0056b3;    /* Темна нијанса при hover */-->
+<!--        }-->
+
+<!--        /* Ако сакаш копчето за одјава да е различно */-->
+<!--        #logoutBtn {-->
+<!--            background-color: #dc3545;-->
+<!--        }-->
+
+<!--        #logoutBtn:hover {-->
+<!--            background-color: #a71d2a;-->
+<!--        }-->
+
+<!--    </style>-->
+<!--</head>-->
+<!--<body>-->
+<!--<h1>Ценовник на произоводи<br> Гонито Маркет</h1>-->
+
+<!--<div id="loginSection">-->
+<!--    <input type="password" id="adminPassword" placeholder="Внеси админ лозинка" />-->
+<!--    <button id="loginBtn">Најави се како админ</button>-->
+<!--    <button id="logoutBtn">Одјави се</button>-->
+<!--</div>-->
+
+<!--<input type="text" id="search" placeholder="Пребарај произовод по име ... " />-->
+
+<!--&lt;!&ndash; САМО за админ: форма за додавање/измени &ndash;&gt;-->
+<!--<div id="adminFormSection" style="display: none;">-->
+<!--    <h2>Додај / Измени продукт</h2>-->
+<!--    <form id="productForm">-->
+<!--        <input type="text" id="barcode" placeholder="Баркод" required />-->
+<!--        <input type="text" id="name" placeholder="Име на продукт" required />-->
+<!--        <input type="number" id="price" placeholder="Продажна цена" required />-->
+<!--        <br />-->
+<!--        <button type="submit" id="submitBtn">Додај продукт</button>-->
+<!--        <button type="button" id="cancelBtn" style="display:none;">Откажи</button>-->
+<!--    </form>-->
+<!--</div>-->
+
+<!--<table>-->
+<!--    <thead>-->
+<!--    <tr>-->
+<!--        <th id="thBarcode">Баркод</th>-->
+<!--        <th>Име</th>-->
+<!--        <th>Продажна Цена</th>-->
+<!--        <th id="thAction">Акција</th>-->
+<!--    </tr>-->
+<!--    </thead>-->
+<!--    <tbody id="productTableBody"></tbody>-->
+<!--</table>-->
+
+<!--<script>-->
+<!--    let products = [];-->
+<!--    let editMode = false;-->
+<!--    let editBarcode = null;-->
+<!--    let isAdmin = false;-->
+
+<!--    const adminPasswordInput = document.getElementById('adminPassword');-->
+<!--    const loginBtn = document.getElementById('loginBtn');-->
+<!--    const logoutBtn = document.getElementById('logoutBtn');-->
+<!--    const thBarcode = document.getElementById('thBarcode');-->
+<!--    const thAction = document.getElementById('thAction');-->
+<!--    const adminFormSection = document.getElementById('adminFormSection');-->
+
+<!--    // Логин на админ-->
+<!--    loginBtn.addEventListener('click', async () => {-->
+<!--        const password = adminPasswordInput.value.trim();-->
+<!--        if (!password) return alert('Внеси лозинка!');-->
+
+<!--        const res = await fetch('http://localhost:3000/api/login', {-->
+<!--            method: 'POST',-->
+<!--            headers: { 'Content-Type': 'application/json' },-->
+<!--            credentials: 'include',-->
+<!--            body: JSON.stringify({ username: 'admin', password })-->
+<!--        });-->
+<!--        if (res.ok) {-->
+<!--            isAdmin = true;-->
+<!--            alert('Успешна најавa како админ!');-->
+<!--            adminPasswordInput.value = '';-->
+<!--            adminPasswordInput.style.display = 'none';-->
+<!--            loginBtn.style.display = 'none';-->
+<!--            logoutBtn.style.display = 'inline-block';-->
+<!--            await loadAndDisplay();-->
+<!--        } else {-->
+<!--            alert('Погрешно корисничко име или лозинка!');-->
+<!--        }-->
+<!--    });-->
+
+<!--    // Логаут на админ-->
+<!--    logoutBtn.addEventListener('click', async () => {-->
+<!--        isAdmin = false;-->
+<!--        document.cookie = 'token=; Max-Age=0'; // избриши cookie-->
+<!--        alert('Се одјавивте.');-->
+<!--        adminPasswordInput.style.display = 'inline-block';-->
+<!--        loginBtn.style.display = 'inline-block';-->
+<!--        logoutBtn.style.display = 'none';-->
+<!--        resetForm();-->
+<!--        displayProducts(products);-->
+<!--        showAdminElements();-->
+<!--    });-->
+
+<!--    function showAdminElements() {-->
+<!--        if (isAdmin) {-->
+<!--            thBarcode.style.display = '';-->
+<!--            thAction.style.display = '';-->
+<!--            adminFormSection.style.display = 'block';-->
+<!--        } else {-->
+<!--            thBarcode.style.display = 'none';-->
+<!--            thAction.style.display = 'none';-->
+<!--            adminFormSection.style.display = 'none';-->
+<!--        }-->
+<!--    }-->
+
+<!--    async function fetchProducts() {-->
+<!--        const res = await fetch('http://localhost:3000/api/products');-->
+<!--        const data = await res.json();-->
+<!--        return data.map(p => ({-->
+<!--            barcode: p.barcode,-->
+<!--            name: p.name,-->
+<!--            price: p.price-->
+<!--        }));-->
+<!--    }-->
+
+<!--    // function displayProducts(list) {-->
+<!--    //     const tbody = document.getElementById('productTableBody');-->
+<!--    //     tbody.innerHTML = '';-->
+<!--    //     list.forEach(product => {-->
+<!--    //         const tr = document.createElement('tr');-->
+<!--    //         if (isAdmin) {-->
+<!--    //             tr.innerHTML = `-->
+<!--    //                 <td>${product.barcode}</td>-->
+<!--    //                 <td>${product.name}</td>-->
+<!--    //                 <td>${product.price.toFixed(2)}</td>-->
+<!--    //                 <td><button class="btn-delete">Избриши</button></td>-->
+<!--    //             `;-->
+<!--    //             tr.querySelector('.btn-delete')-->
+<!--    //                 .addEventListener('click', e => {-->
+<!--    //                     e.stopPropagation();-->
+<!--    //                     if (confirm(`Да избришам ли: ${product.name}?`)) {-->
+<!--    //                         deleteProduct(product.barcode);-->
+<!--    //                     }-->
+<!--    //                 });-->
+<!--    //         } else {-->
+<!--    //             tr.innerHTML = `-->
+<!--    //                 <td>${product.name}</td>-->
+<!--    //                 <td>${product.price.toFixed(2)}</td>-->
+<!--    //             `;-->
+<!--    //         }-->
+<!--    //         tr.addEventListener('click', () => selectProduct(product));-->
+<!--    //         tbody.appendChild(tr);-->
+<!--    //     });-->
+<!--    // }-->
+
+<!--    function displayProducts(products) {-->
+<!--        const tbody = document.getElementById('productTableBody');-->
+<!--        tbody.innerHTML = '';-->
+<!--        products.forEach(product => {-->
+<!--            const tr = document.createElement('tr');-->
+<!--            if(isAdmin){-->
+<!--                tr.innerHTML = `-->
+<!--                <td>${product.barcode}</td>-->
+<!--                <td>${product.name}</td>-->
+<!--                <td>${product.price.toFixed(2)}</td>-->
+<!--                <td>-->
+<!--                    <button class="btn-edit">Измени</button>-->
+<!--                    <button class="btn-delete">Избриши</button>-->
+<!--                </td>-->
+<!--            `;-->
+<!--                tr.querySelector('.btn-delete').addEventListener('click', (e) => {-->
+<!--                    e.stopPropagation();-->
+<!--                    if (confirm(`Дали сте сигурни дека сакате да го избришете продуктот: ${product.name}?`)) {-->
+<!--                        deleteProduct(product.barcode);-->
+<!--                    }-->
+<!--                });-->
+<!--                tr.querySelector('.btn-edit').addEventListener('click', (e) => {-->
+<!--                    e.stopPropagation();-->
+<!--                    selectProduct(product);-->
+<!--                });-->
+<!--            } else {-->
+<!--                tr.innerHTML = `-->
+<!--                <td>${product.name}</td>-->
+<!--                <td>${product.price.toFixed(2)}</td>-->
+<!--            `;-->
+<!--            }-->
+<!--            tbody.appendChild(tr);-->
+<!--        });-->
+<!--    }-->
+
+
+<!--    async function deleteProduct(barcode) {-->
+<!--        const res = await fetch(`http://localhost:3000/api/products/${barcode}`, {-->
+<!--            method: 'DELETE',-->
+<!--            credentials: 'include'-->
+<!--        });-->
+<!--        if (res.ok) {-->
+<!--            alert('Производ избришан.');-->
+<!--            await loadAndDisplay();-->
+<!--            resetForm();-->
+<!--        } else {-->
+<!--            alert('Грешка при бришење.');-->
+<!--        }-->
+<!--    }-->
+
+<!--    function selectProduct(product) {-->
+<!--        if (!isAdmin) return;-->
+<!--        editMode = true;-->
+<!--        editBarcode = product.barcode;-->
+<!--        document.getElementById('barcode').value = product.barcode;-->
+<!--        document.getElementById('name').value = product.name;-->
+<!--        document.getElementById('price').value = product.price;-->
+<!--        document.getElementById('barcode').disabled = true;-->
+<!--        document.getElementById('submitBtn').textContent = 'Измени продукт';-->
+<!--        document.getElementById('cancelBtn').style.display = 'inline-block';-->
+<!--    }-->
+
+<!--    function resetForm() {-->
+<!--        editMode = false;-->
+<!--        editBarcode = null;-->
+<!--        document.getElementById('productForm').reset();-->
+<!--        document.getElementById('barcode').disabled = false;-->
+<!--        document.getElementById('submitBtn').textContent = 'Додај продукт';-->
+<!--        document.getElementById('cancelBtn').style.display = 'none';-->
+<!--    }-->
+
+<!--    document.getElementById('cancelBtn').addEventListener('click', resetForm);-->
+
+<!--    document.getElementById('productForm').addEventListener('submit', async e => {-->
+<!--        e.preventDefault();-->
+<!--        const barcode = document.getElementById('barcode').value.trim();-->
+<!--        const name = document.getElementById('name').value.trim();-->
+<!--        const price = parseFloat(document.getElementById('price').value);-->
+
+<!--        if (!barcode || !name || isNaN(price)) {-->
+<!--            return alert('Внеси валидни податоци!');-->
+<!--        }-->
+
+<!--        if (editMode) {-->
+<!--            const res = await fetch(`http://localhost:3000/api/products/${editBarcode}`, {-->
+<!--                method: 'PUT',-->
+<!--                headers: { 'Content-Type': 'application/json' },-->
+<!--                credentials: 'include',-->
+<!--                body: JSON.stringify({ name, price })-->
+<!--            });-->
+<!--            if (res.ok) {-->
+<!--                alert('Производот е изменет.');-->
+<!--                resetForm();-->
+<!--                await loadAndDisplay();-->
+<!--            } else {-->
+<!--                alert('Грешка при измена.');-->
+<!--            }-->
+<!--        } else {-->
+<!--            const res = await fetch('http://localhost:3000/api/products', {-->
+<!--                method: 'POST',-->
+<!--                headers: { 'Content-Type': 'application/json' },-->
+<!--                credentials: 'include',-->
+<!--                body: JSON.stringify({ barcode, name, price })-->
+<!--            });-->
+<!--            if (res.ok) {-->
+<!--                alert('Производот е додаден.');-->
+<!--                resetForm();-->
+<!--                await loadAndDisplay();-->
+<!--            } else {-->
+<!--                const err = await res.json();-->
+<!--                alert(`Грешка: ${err.message}`);-->
+<!--            }-->
+<!--        }-->
+<!--    });-->
+
+<!--    document.getElementById('search').addEventListener('input', e => {-->
+<!--        const q = e.target.value.toLowerCase();-->
+<!--        displayProducts(-->
+<!--            products.filter(p =>-->
+<!--                p.name.toLowerCase().includes(q) ||-->
+<!--                p.barcode.includes(q)-->
+<!--            )-->
+<!--        );-->
+<!--    });-->
+
+<!--    async function loadAndDisplay() {-->
+<!--        products = await fetchProducts();-->
+<!--        products.sort((a, b) => a.name.localeCompare(b.name, 'mk'));-->
+<!--        showAdminElements();-->
+<!--        displayProducts(products);-->
+
+<!--    }-->
+
+<!--    loadAndDisplay();-->
+<!--</script>-->
+<!--</body>-->
+<!--</html>-->
+
+
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Гонито Маркет</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        input, button {
+            padding: 8px;
+            margin: 5px 0;
+            width: 300px;
+            box-sizing: border-box;
+        }
+        button {
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .btn-delete, .btn-edit {
+            margin-left: 5px;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            width: auto;
+        }
+        .btn-delete {
+            background-color: #e74c3c;
+        }
+        .btn-delete:hover {
+            background-color: #c0392b;
+        }
+        .btn-edit {
+            background-color: #3498db;
+        }
+        .btn-edit:hover {
+            background-color: #2980b9;
+        }
+        #loginSection {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #loginSection input[type="password"] {
+            width: 180px;
+            padding: 6px 10px;
+            border: 1.5px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.25s ease;
+        }
+
+        #loginSection input[type="password"]:focus {
+            outline: none;
+            border-color: #0d6efd; /* светло сина */
+            box-shadow: 0 0 5px rgba(13, 110, 253, 0.5);
+        }
+
+        #loginSection button {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.25s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+
+        #loginSection button#loginBtn {
+            background-color: #0d6efd; /* bootstrap primary blue */
+            color: white;
+        }
+
+        #loginSection button#loginBtn:hover {
+            background-color: #084cd6;
+        }
+
+        #loginSection button#logoutBtn {
+            background-color: #dc3545; /* bootstrap danger red */
+            color: white;
+        }
+
+        #loginSection button#logoutBtn:hover {
+            background-color: #a71d2a;
+        }
+
+    </style>
+</head>
+<body>
+<h1>Ценовник на производи Гонито Маркет</h1>
+
+<div id="loginSection">
+    <input type="password" id="adminPassword" placeholder="Внеси админ лозинка" />
+    <button id="loginBtn">Најави се како админ</button>
+    <button id="logoutBtn" style="display: none">Одјави се</button>
+</div>
+
+<input type="text" id="search" placeholder="Пребарај продукт по име..." />
+
+<div id="adminFormSection" style="display: none;">
+    <h2>Додај / Измени продукт</h2>
+    <form id="productForm">
+        <input type="text" id="barcode" placeholder="Баркод" required />
+        <input type="text" id="name" placeholder="Име на продукт" required />
+        <input type="number" id="price" placeholder="Продажна цена" required />
+        <br />
+        <button type="submit" id="submitBtn">Додај продукт</button>
+        <button type="button" id="cancelBtn" style="display: none;">Откажи</button>
+    </form>
+</div>
+
+<table>
+    <thead>
+    <tr>
+        <th id="thBarcode">Баркод</th>
+        <th>Име</th>
+        <th>Продажна Цена</th>
+        <th id="thAction">Акција</th>
+    </tr>
+    </thead>
+    <tbody id="productTableBody"></tbody>
+</table>
+
+<script>
+    let products = [];
+    let editMode = false;
+    let editBarcode = null;
+    let isAdmin = false;
+
+    const adminPasswordInput = document.getElementById('adminPassword');
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const thBarcode = document.getElementById('thBarcode');
+    const thAction = document.getElementById('thAction');
+    const adminFormSection = document.getElementById('adminFormSection');
+
+    // Логин
+    loginBtn.addEventListener('click', async () => {
+        const password = adminPasswordInput.value.trim();
+        if (!password) return alert('Внеси лозинка!');
+        const res = await fetch('http://localhost:3000/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ username: 'admin', password })
+        });
+        if (res.ok) {
+            isAdmin = true;
+            adminPasswordInput.value = '';
+            adminPasswordInput.style.display = 'none';
+            loginBtn.style.display = 'none';
+            logoutBtn.style.display = 'inline-block';
+            await loadAndDisplay();
+        } else {
+            alert('Погрешна лозинка!');
+        }
+    });
+
+    // Логаут
+    logoutBtn.addEventListener('click', async () => {
+        isAdmin = false;
+        document.cookie = 'token=; Max-Age=0';
+        adminPasswordInput.style.display = 'inline-block';
+        loginBtn.style.display = 'inline-block';
+        logoutBtn.style.display = 'none';
+        resetForm();
+        displayProducts(products);
+        showAdminElements();
+    });
+
+    function showAdminElements() {
+        if (isAdmin) {
+            thBarcode.style.display = '';
+            thAction.style.display = '';
+            adminFormSection.style.display = 'block';
+        } else {
+            thBarcode.style.display = 'none';
+            thAction.style.display = 'none';
+            adminFormSection.style.display = 'none';
+        }
+    }
+
+    async function fetchProducts() {
+        const res = await fetch('http://localhost:3000/api/products');
+        return res.json();
+    }
+
+    function displayProducts(list) {
+        const tbody = document.getElementById('productTableBody');
+        tbody.innerHTML = '';
+        list.forEach(p => {
+            const tr = document.createElement('tr');
+            if (isAdmin) {
+                tr.innerHTML = `
+            <td>${p.barcode}</td>
+            <td>${p.name}</td>
+            <td>${p.price.toFixed(2)}</td>
+            <td>
+              <button class="btn-edit">Измени</button>
+              <button class="btn-delete">Избриши</button>
+            </td>
+          `;
+                tr.querySelector('.btn-delete').addEventListener('click', e => {
+                    e.stopPropagation();
+                    if (confirm(`"dali da izbrisam ${p.name}?"`)) deleteProduct(p.barcode);
+                });
+                tr.querySelector('.btn-edit').addEventListener('click', e => {
+                    e.stopPropagation();
+                    selectProduct(p);
+                });
+            } else {
+                tr.innerHTML = `
+            <td>${p.name}</td>
+            <td>${p.price.toFixed(2)}</td>
+          `;
+            }
+            tbody.appendChild(tr);
+        });
+    }
+
+
+
+    async function deleteProduct(barcode) {
+        const res = await fetch(`http://localhost:3000/api/products/${barcode}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        if (res.ok) {
+            await loadAndDisplay();
+            resetForm();
+        } else alert('Грешка при бришење');
+    }
+
+    function selectProduct(p) {
+        if (!isAdmin) return;
+        editMode = true;
+        editBarcode = p.barcode;
+        document.getElementById('barcode').value = p.barcode;
+        document.getElementById('name').value = p.name;
+        document.getElementById('price').value = p.price;
+        document.getElementById('barcode').disabled = false; // овозможи уредување
+        document.getElementById('submitBtn').textContent = 'Измени продукт';
+        document.getElementById('cancelBtn').style.display = 'inline-block';
+    }
+
+    function resetForm() {
+        editMode = false;
+        editBarcode = null;
+        document.getElementById('productForm').reset();
+        document.getElementById('barcode').disabled = false;
+        document.getElementById('submitBtn').textContent = 'Додај продукт';
+        document.getElementById('cancelBtn').style.display = 'none';
+    }
+
+    document.getElementById('cancelBtn').addEventListener('click', resetForm);
+
+    document.getElementById('productForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        const newBarcode = document.getElementById('barcode').value.trim();
+        const name = document.getElementById('name').value.trim();
+        const price = parseFloat(document.getElementById('price').value);
+        if (!newBarcode || !name || isNaN(price)) return alert('Внеси валидни податоци!');
+
+        if (editMode) {
+            const res = await fetch(`http://localhost:3000/api/products/${editBarcode}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ barcode: newBarcode, name, price })
+            });
+            if (res.ok) {
+                editBarcode = newBarcode;
+                resetForm();
+                await loadAndDisplay();
+            } else alert('Грешка при измена');
+        } else {
+            const res = await fetch('http://localhost:3000/api/products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ barcode: newBarcode, name, price })
+            });
+            if (res.ok) {
+                resetForm();
+                await loadAndDisplay();
+            } else {
+                const err = await res.json();
+                alert(`Грешка: ${err.message}`);
+            }
+        }
+    });
+
+    document.getElementById('search').addEventListener('input', e => {
+        const q = e.target.value.toLowerCase();
+        const filtered = products.filter(p =>
+            p.name.toLowerCase().includes(q) || p.barcode.includes(q)
+        );
+        displayProducts(filtered);
+    });
+
+    async function loadAndDisplay() {
+        products = await fetchProducts();
+        products.sort((a, b) => a.name.localeCompare(b.name, 'mk'));
+        showAdminElements();
+        displayProducts(products);
+    }
+
+    loadAndDisplay();
+</script>
+</body>
+</html>
