@@ -1,20 +1,17 @@
-const express = require('express');
-const cors = require('cors');
-const XLSX = require('xlsx');
-const path = require('path');
-const fs = require('fs');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+const express      = require('express');
+const cors         = require('cors');
+const XLSX         = require('xlsx');
+const path         = require('path');
+const fs           = require('fs');
+const jwt          = require('jsonwebtoken');
+const bcrypt       = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 
-const app = express();
+const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ➤ Ова го менуваме за да дозволува сите origin-и:
-app.use(cors({
-    origin: true,      // дозволува секаков origin
-    credentials: true  // дозволува праќање и примање cookies
-}));
+// Дозволуваме CORS за сите origin-и и праќање cookies
+app.use(cors({ origin: true, credentials: true }));
 
 app.use(express.json());
 app.use(cookieParser());
@@ -22,42 +19,41 @@ app.use(cookieParser());
 // Сервирање на фронтенд статики
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Потоа, API рутите…
-
 const EXCEL_PATH = path.join(__dirname, 'uploads', 'products.xlsx');
 const SECRET_KEY = 'tvoja_super_tajno_kljuce';
 
+// Статички админ
 const adminUser = {
     username: 'admin',
-    passwordHash: bcrypt.hashSync('admin123', 8),
+    passwordHash: bcrypt.hashSync('admin123', 8)
 };
 
-const loadProducts = () => {
+function loadProducts() {
     if (!fs.existsSync(EXCEL_PATH)) return [];
-    const wb = XLSX.readFile(EXCEL_PATH);
+    const wb    = XLSX.readFile(EXCEL_PATH);
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    return data.slice(1).map(row => ({
-        id: row[0],
-        barcode: String(row[1]).trim(),
-        name: String(row[2]).trim(),
-        unit: row[4] || '',
-        price: Number(row[8]) || 0,
+    const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }).slice(1);
+    return rows.map(r => ({
+        id:      r[0],
+        barcode: String(r[1]).trim(),
+        name:    String(r[2]).trim(),
+        unit:    r[4] || '',
+        price:   Number(r[8]) || 0,
     }));
-};
+}
 
-const saveProducts = products => {
-    const wb = XLSX.readFile(EXCEL_PATH);
-    const sheet = wb.Sheets[wb.SheetNames[0]];
+function saveProducts(products) {
+    const wb     = XLSX.readFile(EXCEL_PATH);
+    const sheet  = wb.Sheets[wb.SheetNames[0]];
     const header = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })[0];
-    const aoa = [header, ...products.map(p => [
+    const data   = [header, ...products.map(p => [
         p.id, p.barcode, p.name, null, p.unit, null, null, null, p.price, null
     ])];
-    const newSheet = XLSX.utils.aoa_to_sheet(aoa);
-    const newWb = XLSX.utils.book_new();
+    const newSheet = XLSX.utils.aoa_to_sheet(data);
+    const newWb    = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(newWb, newSheet, wb.SheetNames[0]);
     XLSX.writeFile(newWb, EXCEL_PATH);
-};
+}
 
 let products = loadProducts();
 
@@ -77,11 +73,13 @@ function verifyAdmin(req, res, next) {
     }
 }
 
-// --- API маршрути ---
+// --- API Rute ---
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    if (username !== adminUser.username ||
-        !bcrypt.compareSync(password, adminUser.passwordHash)) {
+    if (
+        username !== adminUser.username ||
+        !bcrypt.compareSync(password, adminUser.passwordHash)
+    ) {
         return res.status(401).json({ message: 'Грешно корисничко име или лозинка' });
     }
     const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: '2h' });
@@ -89,7 +87,13 @@ app.post('/api/login', (req, res) => {
     res.json({ message: 'Најавен' });
 });
 
-app.get('/api/products', (req, res) => res.json(products));
+app.get('/api/check-auth', verifyAdmin, (req, res) => {
+    res.json({ username: req.user.username });
+});
+
+app.get('/api/products', (req, res) => {
+    res.json(products);
+});
 
 app.post('/api/products', verifyAdmin, (req, res) => {
     const { barcode, name, price, unit } = req.body;
@@ -100,11 +104,11 @@ app.post('/api/products', verifyAdmin, (req, res) => {
         return res.status(400).json({ message: 'Баркод постои' });
     }
     const newProduct = {
-        id: products.length ? Math.max(...products.map(p=>p.id)) + 1 : 1,
+        id:      products.length ? Math.max(...products.map(p => p.id)) + 1 : 1,
         barcode: barcode.trim(),
-        name: name.trim(),
-        unit: unit || '',
-        price: Number(price),
+        name:    name.trim(),
+        unit:    unit || '',
+        price:   Number(price),
     };
     products.push(newProduct);
     saveProducts(products);
@@ -127,11 +131,12 @@ app.delete('/api/products/:barcode', verifyAdmin, (req, res) => {
     res.json({ message: 'Избришан' });
 });
 
-// Фолбек за SPA
-app.get('*', (req, res) => {
+// ➤ Фолбек, без path-to-regexp:
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Start server
 app.listen(PORT, () => {
-    console.log(`🚀 Сервер работи на порт ${PORT}`);
+    console.log(`🚀 Серверот работи на порт ${PORT}`);
 });
